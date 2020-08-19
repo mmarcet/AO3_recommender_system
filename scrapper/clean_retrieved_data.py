@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import scipy.sparse as sparse
 
-#Clean metadata obtained from the AO3 scrapper
+#Clean metadata obtained from the AO3 scrapper and generate the input
+#files for the different programs
 
 inputFile = "metadata_fics.txt"
 outfileCleaned = "metadata_fics.cleaned.txt"
@@ -12,6 +13,8 @@ user_to_item_table_content = "user_to_item.content.txt"
 user_to_item_table_collab = "user_to_item.collab.txt"
 
 info = {}
+authors = {}
+authors_liked = {}
 ficInfo = {}
 with open(outfileCleaned,"w") as outfile:
     #Print header
@@ -33,6 +36,9 @@ with open(outfileCleaned,"w") as outfile:
                 else:
                     #Save information for the user to item matrix
                     author = dades[1]
+                    if author not in authors:
+                        authors[author] = set([])
+                    authors[author].add(ficId)
                     name = dades[2]
                     ficInfo[ficId] = [name,author,dades[3],dades[6],dades[11]]
                     if dades[-1] != "-":
@@ -46,6 +52,11 @@ with open(outfileCleaned,"w") as outfile:
                         for r in readers:
                             if r not in info:
                                 info[r] = {}
+                            if r not in authors_liked:
+                                authors_liked[r] = {}
+                            if author not in authors_liked[r]:
+                                authors_liked[r][author] = set([])
+                            authors_liked[r][author].add(ficId)
                             info[r][ficId] = "1.0"
                     #Replace , in numbers
                     dades[6] = dades[6].replace(",","")
@@ -131,3 +142,21 @@ with open("mappingItems.txt", "w") as outFics:
         else:
             tag = "fine"
         print(code+"\t"+mappingItems[code]+"\t"+tag,file=outFics)
+
+mappingAuthors = {}
+for author in authors:
+    if len(authors[author]) > 5:
+        mappingAuthors[author] = str(len(mappingAuthors))
+
+with open("mappingAuthors.txt","w") as outfile:
+    for code in mappingAuthors:
+        print(code+"\t"+mappingAuthors[code],file=outfile)
+
+with open("user_to_author_table.txt","w") as outfile:
+    for user in authors_liked:
+        for author in authors_liked[user]:
+            if author in mappingAuthors:
+                ranking = int(len(authors_liked[user][author]) / len(authors[author])*5)
+                print(mappingUsers[user]+"\t"+mappingAuthors[author]+"\t"+str(ranking),file=outfile)
+
+

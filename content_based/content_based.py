@@ -11,6 +11,7 @@ from sklearn.cluster import MiniBatchKMeans
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import argparse
+from tqdm import tqdm
 
 def get_recommendation(fic,mapping_reduced,similarity_matrix,df_reduced):
     if fic in mapping_reduced:
@@ -82,13 +83,93 @@ def get_clusters(word_matrix,df):
     clusters = MiniBatchKMeans(n_clusters=args.numCl, init_size=1024, batch_size=2048, random_state=args.numR).fit_predict(word_matrix)
     df["cluster"] = clusters
     return df
+
+def reduce_matrix(df,word_matrix,ficName,mode):
+    if mode == "clustering":
+        df = get_clusters(word_matrix,df)
+        if ficName:
+            df, df_reduced, word_matrix_reduced = reduce_through_clustering(word_matrix,df,ficName)
+    elif mode == "clustering_by_characters":
+        word_matrix1 = get_word_matrix(df["characters"],args.word_method,args.numW)
+        df = get_clusters(word_matrix1,df)
+        if ficName:
+            df, df_reduced, word_matrix1_reduced,cluster_idx = reduce_through_clustering(word_matrix1,df,ficName)
+            word_matrix_reduced = word_matrix[cluster_idx]
+    elif mode == "clustering_by_relationships":
+        word_matrix1 = get_word_matrix(df["relationships"],args.word_method,args.numW)
+        df = get_clusters(word_matrix1,df)
+        if ficName:
+            df, df_reduced, word_matrix1_reduced,cluster_idx = reduce_through_clustering(word_matrix1,df,ficName)
+            word_matrix_reduced = word_matrix[cluster_idx]
+    elif mode == "number_words":
+        df_reduced, word_matrix_reduced = reduce_through_wordNumber(word_matrix,df)
+    return df_reduced, word_matrix_reduced, df
+
+def recommend_to_single_item(ficName,df_reduced,word_matrix_reduced):
+    mapping_reduced = pd.Series(df_reduced.index,index = df_reduced["idName"])
+    fic_index = mapping_reduced[ficName]
+    similarity_matrix = get_similarity_matrix(word_matrix_reduced)
+    recom,similarity_scores = get_recommendation(ficName,mapping_reduced,similarity_matrix,df_reduced)
+    return recom,similarity_scores
+
+def recommend_all_items(df,df_reduced,word_matrix,word_matrix_reduced,mode,ficList):
+    recommendations = {}
+    if len(ficList) == 0:
+        ficList = set(df["idName"].to_list())
+    if mode == "number_words":
+        mapping_reduced = pd.Series(df_reduced.index,index = df_reduced["idName"])
+        similarity_matrix = get_similarity_matrix(word_matrix_reduced)
+        with open(args.outfileName,"w") as outfile:
+            for a in tqdm(range(50000)):
+                ficName = df_reduced.iloc[a]["idName"]
+                if ficName in ficList:
+                    recom, similarity_score = get_recommendation(ficName,mapping_reduced,similarity_matrix,df_reduced)
+                    recommendations[ficName] = [recom, similarity_score]
+                    recom = [str(x) for x in recom]
+                    print(str(ficName)+"\t"+";".join(recom),file=outfile)
+    else:
+        with open(args.outfileName,"w") as outfile:
+            for cl in tqdm(range(args.numCl)):
+                cluster_idx = df[df["cluster"] == cl].index
+                df_reduced = df[df["cluster"] == cl]
+                df_reduced.reset_index(drop=True,inplace=True)
+                word_matrix_reduced = word_matrix[cluster_idx]
+                mapping_reduced = pd.Series(df_reduced.index,index = df_reduced["idName"])
+                similarity_matrix = get_similarity_matrix(word_matrix_reduced)
+                for a in range(df_reduced.shape[0]):
+                    ficName = df_reduced.iloc[a]["idName"]
+                    if ficName in ficList:
+                        recom, similarity_score = get_recommendation(ficName,mapping_reduced,similarity_matrix,df_reduced)
+                        recommendations[ficName] = [recom, similarity_score]
+                        recom = [str(x) for x in recom]
+                        print(str(cl)+"\t"+str(ficName)+"\t"+";".join(recom),file=outfile)
+    return recommendations
+
+def join_recommendations(recommendations, list_fics):
+    counter = {}
+    for fic_parent in recommendations:
+        for a in range(len(recommendations[fic_parent][0])):
+            fic = recommendations[fic_parent][0][a]
+            if fic not in list_fics:
+                print(fic_parent,fic)
+                if fic not in counter:
+                    counter[fic] = 0
+                counter[fic] += recommendations[fic_parent][1][a][1]
+    fics = list(counter.keys())
+    fics = sorted(fics, key=lambda x: counter[x], reverse=True)
+    return fics[:args.numR]
     
 parser = argparse.ArgumentParser(description="Content based recommender")
 parser.add_argument("-i",dest="metadataFile",action="store",required=True,help="File containing the fics metadata")
 parser.add_argument("-m",dest="filtering_mode",action="store",choices=["clustering","number_words","clustering_by_characters","clustering_by_relationships"],default="number_words",help="How data will be filtered before prediction")
 parser.add_argument("-f",dest="ficInterest",action="store",type=int,default=None,help="Id of the fic you want to search similarities to, if none is provided the script will compute recommendations for all users")
+parser.add_argument("-u",dest="userInterest",action="store",default=None,help="User of interest, recommends fics according to what the user has read")
 parser.add_argument("-w",dest="word_method",action="store",choices=["tfidf","counts"],default="tfidf",help="Method used to create the word matrix")
 parser.add_argument("-o",dest="outfileName",action="store",default="results.item2item.contentbased.txt",help="Output for all the recommendations")
+parser.add_argument("-r",dest="user_item_table",action="store",default=None,help="User to item csv file")
+parser.add_argument("--recommendations_list",dest="recomList",action="store",default=None,help="List of pre-calculated recommendations for the fics obtained with the option predict_all_fics")
+parser.add_argument("--predict_all_fics",dest="pred_all_fics",action="store_true",help="Makes recommendations for all fanfictions")
+parser.add_argument("--predict_all_users",dest="pred_all_users",action="store_true",help="Makes recommendations for all users")
 parser.add_argument("--number_clusters",dest="numCl",action="store",type=int,default=12,help="Number of clusters used in kmeans when clustering filter is selected")
 parser.add_argument("--random_seed",dest="randS",action="store",type=int,default=33,help="Random seed to run kmeans")
 parser.add_argument("--number_words",dest="numW",action="store",type=int,default=10000,help="Number of words in Tfid analysis")
@@ -99,6 +180,12 @@ parser.add_argument("--find_optimal_clusters",dest="optimize_clusters",action="s
 args = parser.parse_args()
     
 df = pd.read_csv(args.metadataFile,sep="\t",na_values="-")
+
+#change index so that it will match the mappings in the users - item matrix
+mappingItems = pd.read_csv("mappingItems.txt",sep="\t",header=None,names=["idName","internalId","tag"])
+df = pd.merge(df, mappingItems, on='idName')
+df.set_index("internalId",drop=True, inplace=True)
+df.sort_index(inplace=True)
 
 df = df.fillna("")
 df["metadata"] = df["additional_tags"]
@@ -111,59 +198,29 @@ if args.addR:
 word_matrix = get_word_matrix(df["metadata"],args.word_method,args.numW)
 
 ficName = args.ficInterest
+userName = args.userInterest
 
-if args.filtering_mode == "clustering":
-    df = get_clusters(word_matrix,df)
-    if ficName:
-        df, df_reduced, word_matrix_reduced = reduce_through_clustering(word_matrix,df,ficName)
-elif args.filtering_mode == "clustering_by_characters":
-    word_matrix1 = get_word_matrix(df["characters"],args.word_method,args.numW)
-    df = get_clusters(word_matrix1,df)
-    if ficName:
-        df, df_reduced, word_matrix1_reduced,cluster_idx = reduce_through_clustering(word_matrix1,df,ficName)
-        word_matrix_reduced = word_matrix[cluster_idx]
-elif args.filtering_mode == "clustering_by_relationships":
-    word_matrix1 = get_word_matrix(df["relationships"],args.word_method,args.numW)
-    df = get_clusters(word_matrix1,df)
-    if ficName:
-        df, df_reduced, word_matrix1_reduced,cluster_idx = reduce_through_clustering(word_matrix1,df,ficName)
-        word_matrix_reduced = word_matrix[cluster_idx]
-elif args.filtering_mode == "number_words":
-    df_reduced, word_matrix_reduced = reduce_through_wordNumber(word_matrix,df)
+df_reduced, word_matrix_reduced, df = reduce_matrix(df,word_matrix,ficName,args.filtering_mode)
 
 if ficName:
-    mapping_reduced = pd.Series(df_reduced.index,index = df_reduced["idName"])
-    fic_index = mapping_reduced[ficName]
-    similarity_matrix = get_similarity_matrix(word_matrix_reduced)
-
-    recom,similarity_score = get_recommendation(ficName,mapping_reduced,similarity_matrix,df_reduced)
-
-    print(df_reduced[df_reduced["idName"] == ficName][["idName","title","metadata"]])
-    print(recom)
-    print(similarity_score)
-else:
+    recom,similarity_scores = recommend_to_single_item(ficName,df_reduced,word_matrix_reduced)
+elif userName:
+    df_ratings = pd.read_csv(args.user_item_table,sep="\t",names=["userId","ficId","rating"])
+    mappingUser = pd.read_csv("mappingUsers.txt",sep="\t",header=None,names=["userName","internalId","tag"])
+    internal_user_id = int(mappingUser[mappingUser["userName"] == userName]["internalId"])
+    mappingI2 = pd.Series(mappingItems["idName"],index = mappingItems.index)
+    list_fics_ind = df_ratings[df_ratings["userId"] == internal_user_id]["ficId"].to_list()
+    list_fics = [mappingI2[x] for x in list_fics_ind]
+    recommendations = recommend_all_items(df,df_reduced,word_matrix,word_matrix_reduced,args.filtering_mode,list_fics)
+    print(recommendations)
+    recommend = join_recommendations(recommendations,list_fics)
+    print(df_reduced[df_reduced["idName"].isin(recommend)][["idName","title","author","metadata"]])
+elif args.pred_all_fics:
     print("Warning: All recommendations will be computed")
-    if args.filtering_mode == "number_words":
-        mapping_reduced = pd.Series(df_reduced.index,index = df_reduced["idName"])
-        similarity_matrix = get_similarity_matrix(word_matrix_reduced)
-        with open(args.outfileName,"w") as outfile:
-            for a in range(50000):
-                ficName = df_reduced.iloc[a]["idName"]
-                recom, similarity_score = get_recommendation(ficName,mapping_reduced,similarity_matrix,df_reduced)
-                recom = [str(x) for x in recom]
-                print(str(ficName)+"\t"+";".join(recom),file=outfile)
-    else:
-        with open(args.outfileName,"w") as outfile:
-            for cl in range(args.numCl):
-                cluster_idx = df[df["cluster"] == cl].index
-                df_reduced = df[df["cluster"] == cl]
-                df_reduced.reset_index(drop=True,inplace=True)
-                word_matrix_reduced = word_matrix[cluster_idx]
-                mapping_reduced = pd.Series(df_reduced.index,index = df_reduced["idName"])
-                similarity_matrix = get_similarity_matrix(word_matrix_reduced)
-                for a in range(df_reduced.shape[0]):
-                    ficName = df_reduced.iloc[a]["idName"]
-                    recom, similarity_score = get_recommendation(ficName,mapping_reduced,similarity_matrix,df_reduced)
-                    recom = [str(x) for x in recom]
-                    print(str(cl)+"\t"+str(ficName)+"\t"+";".join(recom),file=outfile)
-            
+    recommendations = recommend_all_items(df,df_reduced,word_matrix,word_matrix_reduced,args.filtering_mode,[])
+elif args.pred_all_users:
+    if args.recomList:
+    print("Warning: All recommendations will be computed")
+    recommendations = recommend_all_items(df,df_reduced,word_matrix,word_matrix_reduced,args.filtering_mode,[])
+    df_ratings = pd.read_csv(args.user_item_table,sep="\t",names=["userId","ficId","rating"])
+    mappingUser = pd.read_csv("mappingUsers.txt",sep="\t",header=None,names=["userName","internalId","tag"])

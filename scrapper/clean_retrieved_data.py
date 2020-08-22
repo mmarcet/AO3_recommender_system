@@ -123,6 +123,8 @@ with open(outfileCleaned,"w") as outfile:
                     for a in range(len(dades)):
                         if dades[a] == "":
                             dades[a] = "-"
+                    #Pandas does not like " in title apparently
+                    dades[2] = dades[2].replace('"',"'")
                     #Remove spaces so that each tag is considered as one 
                     #entity then substitute | in tags, characters and 
                     #relationships for spaces so that they can be interpreted 
@@ -132,6 +134,7 @@ with open(outfileCleaned,"w") as outfile:
                     dades[13] = dades[13].replace(" ","").replace("|"," ")
                     print("\t".join(dades),file=outfile)
 
+exit()
 all_users = list(info.keys())
 #Marks users that have liked less than 10 fics
 users_cold_start = set([x for x in all_users if len(info[x]) < 10])

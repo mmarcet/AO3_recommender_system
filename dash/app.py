@@ -19,11 +19,17 @@ def generate_bar_plot(df, X, Y, color, hover, xlabel, ylabel):
     fig.update_layout(plot_bgcolor='#ffffff')
     return fig
 
+def get_recommendation(userName,df,tag):
+    df_user = df[df[0] == userName]
+    items = [df_user[x].to_string(index=False).replace(" ","") for x in range(1,11)]
+    return items
+
 ## Data
 
 # ~ #Shows number of fics that are liked a certain number of times
 df = pd.read_csv("info_fics.csv",sep=",")
 dfU = pd.read_csv("info_user.csv",sep=",")
+dfR = pd.read_csv("recom.csv",sep=",",header=None)
 options = ["numHits","numKudos","count","numBookmarks","numComments"]
 
 ## Page layout elements
@@ -121,13 +127,75 @@ USER_BASICS = [
     )
 ]
 
+RECOM_ALS = [
+    dbc.CardHeader(html.H5("Recommender based on Matrix Factorization")),
+    dbc.CardBody(
+        [
+            dcc.Loading(
+                id="loading-recommender-ALS",
+                children=[
+                    dbc.Alert(
+                        "Something's gone wrong! Give us a moment, but try loading this page again if problem persists.",
+                        id="no-data-alert-recomALS",
+                        color="warning",
+                        style={"display": "none"},
+                    ),
+                    dbc.Row(
+                        [
+                            dbc.Col(
+                                [
+                                    dbc.Label("Input user name"),
+                                    dbc.Input(id="input_ALS", placeholder="dls", type="text"),
+                                    dbc.Button("Submit", id="input_ALS_submit",color="primary"),
+                                ],
+                                md=2
+                            ),
+                            dbc.Col(
+                                [
+                                    dbc.ListGroup(
+                                        id="output_ALS_1",
+                                        children=[
+                                            dbc.ListGroupItem(id="item1", href="https://google.com", color="primary"),
+                                            dbc.ListGroupItem(id="item2", href="https://google.com", color="secondary"),
+                                            dbc.ListGroupItem(id="item3", href="https://google.com", color="primary"),
+                                            dbc.ListGroupItem(id="item4", href="https://google.com", color="secondary"),
+                                            dbc.ListGroupItem(id="item5", href="https://google.com", color="primary"),
+                                        ],
+                                        horizontal=True,
+                                        className="mb-2",
+                                    ),
+                                    dbc.ListGroup(
+                                        id="output_ALS_2",
+                                        children=[
+                                            dbc.ListGroupItem(id="item6", href="https://google.com/", color="primary"),
+                                            dbc.ListGroupItem(id="item7", href="https://google.com", color="secondary"),
+                                            dbc.ListGroupItem(id="item8", href="https://google.com", color="primary"),
+                                            dbc.ListGroupItem(id="item9", href="https://google.com", color="secondary"),
+                                            dbc.ListGroupItem(id="item10", href="https://google.com", color="primary"),
+                                        ],
+                                        horizontal=True,
+                                        className="mb-2",
+                                    )
+                                ],
+                                md=10
+                            )
+                        ]
+                    )
+                ]
+            ),
+        ]
+    )
+]
+
 BODY = dbc.Container(
     [
         dbc.Row([dbc.Col(dbc.Card(FIC_BASICS)),], style={"marginTop": 30}),
-        dbc.Row([dbc.Col(dbc.Card(USER_BASICS)),], style={"marginTop": 30})
+        dbc.Row([dbc.Col(dbc.Card(USER_BASICS)),], style={"marginTop": 30}),
+        dbc.Row([dbc.Col(dbc.Card(RECOM_ALS)),], style={"marginTop": 30})
     ],
     className="mt-12",
 )
+
 
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
@@ -153,7 +221,6 @@ def create_summary_graph():
     Output('summary_fic', 'figure'),
     [Input('figure_fics', 'clickData')])
 def update_summary_graph(clickData):
-    print(clickData["points"][0]["customdata"][0])
     user = clickData['points'][0]["customdata"][0]
     df_user = pd.melt(df[df["idName"] == user])
     df_user = df_user[df_user["variable"].isin(["count","numHits","numKudos","numBookmarks","numComments"])]
@@ -161,6 +228,24 @@ def update_summary_graph(clickData):
     fig.update_layout(showlegend=False)
     return fig
 
+@app.callback([Output("item1", "children"),
+    Output("item2", "children"),
+    Output("item3", "children"),
+    Output("item4", "children"),
+    Output("item5", "children"),
+    Output("item6", "children"),
+    Output("item7", "children"),
+    Output("item8", "children"),
+    Output("item9", "children"),
+    Output("item10", "children"),],
+    [Input('input_ALS_submit', 'n_clicks')],
+    [State('input_ALS', 'value')])
+def print_recomendation_table(n_clicks,value):
+    if n_clicks is None:
+        items = get_recommendation("dls",dfR,"ALS1")
+    else:
+        items = get_recommendation(value,dfR,"ALS1")
+    return items
 
 
 if __name__ == '__main__':

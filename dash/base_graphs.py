@@ -33,9 +33,26 @@ df_cnt = df_cnt.reset_index()
 
 df_cnt.to_csv("info_user.csv",index=False)
 
-outfile = open("recom.csv","w")
+outfile = open("recom.ALS.csv","w")
 for line in open("recom.a55.r0.01.f500.i50.k50.txt"):
     line = line.strip()
     line = line.replace("\t",",").replace(";",",")
     print(line,file=outfile)
+outfile.close()
+
+outfile = open("recom.Cont.csv","w")
+for line in open("item2item.recommender.txt"):
+    line = line.strip()
+    line = line.replace(";","\t")
+    dades = line.split("\t")
+    if len(dades) == 1:
+        line=None
+    elif len(dades) < 50:
+        add2dades = ["-" for x in range(len(dades),50)]
+        dades = dades + add2dades
+        line = ",".join(dades)
+    else:
+        line = ",".join(dades)
+    if line:
+        print(line,file=outfile)
 outfile.close()

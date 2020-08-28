@@ -89,8 +89,9 @@ def load_recommendations(recommFile):
     with open(recommFile,"r") as infile:
         for line in infile:
             line = line.strip()
-            dades = line.split("\t")
-            recomm[dades[0]] = dades[1].split(";")
+            if ";" in line:
+                dades = line.split("\t")
+                recomm[dades[0]] = dades[1].split(";")
     return recomm
     
     

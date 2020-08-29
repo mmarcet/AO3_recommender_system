@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-import matplotlib.pyplot as plt
 import pandas as pd
-import scipy.sparse as sparse
 import random
 from tqdm import tqdm
 import argparse
@@ -65,7 +63,8 @@ def map_user_presence(training, validation, test, users, fics):
             toKeepUsers.add(u)
     return toKeepUsers
 
-def split_train_test(infileName,numUsers,outfileTrain,outfileVal,outfileTest,tag):
+def split_train_test_random(infileName,numUsers,outfileTrain,outfileVal,\
+    outfileTest,tag):
     """Create a single training, validation and test sets. The dataset 
     will delete fics that are not present at least once in each one
     of the sets.
@@ -83,11 +82,11 @@ def split_train_test(infileName,numUsers,outfileTrain,outfileVal,outfileTest,tag
     with open(infileName,"r") as infile:
         for line in infile:
             line = line.strip()
-            dades = line.split("\t")
-            if dades[0] not in info:
-                info[dades[0]] = {}
-            info[dades[0]][dades[1]] = dades[2]
-
+            if "user" not in line and "item" not in line:
+                dades = line.split("\t")
+                if dades[0] not in info:
+                    info[dades[0]] = {}
+                info[dades[0]][dades[1]] = dades[2]
 
     training, validation, test = {}, {}, {}
     all_users = set([])
@@ -123,6 +122,84 @@ def split_train_test(infileName,numUsers,outfileTrain,outfileVal,outfileTest,tag
             for f in test[userId]:
                 if f in all_fics:
                     print(userId+"\t"+f+"\t"+info[userId][f],file=outfileTe)
+
+def parse_date(x): 
+    """ Parses a date to a datetime format.
+    Input: string containing the date
+    Output: datetime object
+    """
+    if "-" in x: 
+        f = lambda x: pd.datetime.strptime(x, "%Y-%m-%d")
+    else: 
+        f = lambda x: pd.datetime.strptime(x, "%d %b %Y")
+    return f(x)
+
+def split_train_test_time(infileName,numUsers,outfileTrain,outfileVal,\
+    outfileTest,time_tag,tag):
+    """Create a single training, validation and test sets based on 
+    when fics have been published or updated. Only useful for content
+    based methods as it separates items in training, validation and test
+    Input:
+    infileName -> table containing the user item rating trios
+    numUsers -> Number of users to start the dataset (the number can 
+            decrease due to the consistency between training, validation
+            and test.
+    outfileTrain, outfileVal, outfileTest -> Names for the training, 
+            validation and test tables
+    time_tag -> whether to take the publication date or the update date
+    tag -> Indicator as to the users should be taken randomly or rather
+        the ones that have read the most of the less fics.
+    """
+    info = {}
+    times = {}
+    with open(infileName,"r") as infile:
+        for line in tqdm(infile):
+            line = line.strip()
+            if "user" not in line and "item" not in line:
+                dades = line.split("\t")
+                if dades[0] not in info:
+                    info[dades[0]] = {}
+                info[dades[0]][dades[1]] = dades[2]
+                if dades[1] not in times:
+                    if time_tag == "published":
+                        times[dades[1]] = parse_date(dades[3])
+                    else:
+                        times[dades[1]] = parse_date(dades[4])
+    
+    training, validation, test = {}, {}, {}
+    for userId, fics in tqdm(info.items()):
+        fics = list(fics.keys())
+        separation = {"tr":set([]),"val":set([]),"te":set([])}
+        for f in fics:
+            if times[f].year == 2019:
+                separation["te"].add(f)
+            elif times[f].year == 2018:
+                separation["val"].add(f)
+            elif times[f].year < 2018:
+                separation["tr"].add(f)
+        if len(separation["tr"]) != 0 and len(separation["te"]) != 0 and len(separation["val"]) != 0:
+            training[userId] = separation["tr"]
+            test[userId] = separation["te"]
+            validation[userId] = separation["val"]
+    
+    all_users = list(training.keys())
+
+    if tag == "Best":
+        all_users = sorted(all_users,key=lambda x: len(info[x]),reverse=True)
+        users_subset = set(all_users[:numUsers])
+    else:
+        random.shuffle(all_users)
+        users_subset = set(all_users[:numUsers])
+    
+    with open(outfileTrain,"w") as outfileT, open(outfileVal,"w") as outfileV, open(outfileTest,"w") as outfileTe:
+        for userId in tqdm(all_users):
+            for f in training[userId]:
+                print(userId+"\t"+f+"\t"+info[userId][f],file=outfileT)
+            for f in validation[userId]:
+                print(userId+"\t"+f+"\t"+info[userId][f],file=outfileV)
+            for f in test[userId]:
+                print(userId+"\t"+f+"\t"+info[userId][f],file=outfileTe)
+
 
 def clean_metadata(infileName,outfileName):
     """ Cleans the metadata obtained from the archive
@@ -181,6 +258,7 @@ def get_user2item_table(inputFile,outFile,minNumReads,minNumLikes):
     """
     relations = {}
     item_likes = {}
+    times = {}
     with open(inputFile,"r") as infile:
         for line in infile:
             line = line.strip()
@@ -190,6 +268,7 @@ def get_user2item_table(inputFile,outFile,minNumReads,minNumLikes):
                 dades = line.split("\t")
                 idName = dades[0]
                 author = dades[1]
+                times[idName] = [dades[3],dades[4]]
                 users = dades[-1].split("|")
                 users.append(author)
                 item_likes[idName] = len(users)
@@ -201,13 +280,13 @@ def get_user2item_table(inputFile,outFile,minNumReads,minNumLikes):
     
     items2keep = set([x for x in item_likes if item_likes[x] > minNumReads])
     with open(outFile,"w") as outfile:
-        print("user\titem\trating",file=outfile)
+        print("user\titem\trating\tpublished_date\tupdate_date",file=outfile)
         for user in relations:
             items = relations[user]
             items = items.intersection(items2keep)
             if len(items) > minNumLikes:
                 for i in items:
-                    print(user+"\t"+i+"\t1.0",file=outfile)
+                    print(user+"\t"+i+"\t1.0\t"+times[i][0]+"\t"+times[i][1],file=outfile)
 
 def get_user2author_table(inputFile,outFile):
     """ Builds a user to author table with rankings according the percentage
@@ -263,8 +342,12 @@ parser.add_argument("--obtain_user_item_file",dest="user2item",\
     action="store_true",help="Creates a user to item file")
 parser.add_argument("--obtain_user_authors_file",dest="user2author",\
     action="store_true",help="Creates a user to author file")
-parser.add_argument("--split_data",dest="split_data",action="store_true",\
-    help="Splits data into training, validation and test")
+parser.add_argument("--split_data_random",dest="split_data",action="store_true",\
+    help="Splits data into training, validation and test randomly masking items")
+parser.add_argument("--split_data_time",dest="split_data_time",action="store_true",\
+    help="Splits data into training, validation and test dividing items\
+    according to publication or update dates. Only userful for content\
+    based methods")
 parser.add_argument("--min_num_reads",dest="minNumReads",type=int,
     action="store",default=0,help="Number of times a fic has to have \
     been read to keep it")
@@ -273,8 +356,12 @@ parser.add_argument("--min_num_liked",dest="minNumLikes",type=int,
     given in order to be included")
 parser.add_argument("--tag",dest="tag",action="store",\
     choices=["Best","Random"],default="Best",\
-    help="Number of Likes a user needs to have \
-    given in order to be included")
+    help="Whether the users taken have the most information or are\
+    picked randomly")
+parser.add_argument("--tag_time",dest="tag_time",action="store",\
+    choices=["published","updated"],default="published",\
+    help="When splitting dataset by time, whether the publishing date\
+    or the update date are taking into account")
 parser.add_argument("--num_users",dest="numUsers",action="store",\
     type=int,default=10000,\
     help="Initial number of users picked for the training dataset")
@@ -297,8 +384,11 @@ elif args.user2item:
     get_user2item_table(args.inputFile,args.outFile,args.minNumReads,\
                         args.minNumLikes)
 elif args.split_data:
-    split_train_test(args.inputFile,args.numUsers,args.outfileTrain, \
+    split_train_test_random(args.inputFile,args.numUsers,args.outfileTrain, \
                     args.outfileVal,args.outfileTest,args.tag)
+elif args.split_data_time:
+    split_train_test_time(args.inputFile,args.numUsers,args.outfileTrain, \
+                    args.outfileVal,args.outfileTest,args.tag_time,args.tag)
 elif args.user2author:
     if not args.outFile:
         exit("An outfile name needs to be provided (-o)")

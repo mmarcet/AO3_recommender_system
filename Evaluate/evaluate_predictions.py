@@ -73,10 +73,13 @@ def load_dataset(infile):
     with open(infile,"r") as infile:
         for line in infile:
             line = line.strip()
-            dades = line.split("\t")
-            if dades[0] not in data:
-                data[dades[0]] = set([])
-            data[dades[0]].add(dades[1])
+            if "user" in line and "item" in line:
+                pass
+            else:
+                dades = line.split("\t")
+                if dades[0] not in data:
+                    data[dades[0]] = set([])
+                data[dades[0]].add(dades[1])
     return data
 
 def load_recommendations(recommFile):

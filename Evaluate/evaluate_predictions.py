@@ -50,7 +50,7 @@ def evaluate_predictions(train,test,recommendations,K):
     Output: Averages for all users of the four metrics
     """
     mainRecall, mainPrec, mainF1, mainMap = [],[],[],[]
-    for user in train:
+    for user in recommendations:
         not_seen = test[user]
         recommend = recommendations[user][:K]
         if len(not_seen) != 0:

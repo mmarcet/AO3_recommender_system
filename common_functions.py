@@ -50,11 +50,13 @@ def create_sparse_matrix(df,user2ind,item2ind):
 
 def get_word_matrix(metadata,word_method,number_words):
     if word_method == "tfidf":    
-        model = TfidfVectorizer(stop_words="english",max_features=number_words,max_df=0.95) 
+        model = TfidfVectorizer(stop_words="english",\
+            max_features=number_words,max_df=0.98) 
         word_matrix = model.fit_transform(metadata)
         vocabulary = model.vocabulary_
     else:
-        model = CountVectorizer(stop_words="english",max_features=number_words,max_df=0.95)
+        model = CountVectorizer(stop_words="english",\
+            max_features=number_words,max_df=0.98)
         model.fit(metadata)
         word_matrix = model.transform(metadata)
         vocabulary = count_vec.vocabulary_

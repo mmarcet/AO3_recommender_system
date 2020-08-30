@@ -11,13 +11,31 @@ import itertools
 import scipy.sparse as sparse
 import argparse
 import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfVectorizer
+
+import sys
+sys.path.append("../")
+import common_functions as CF
 
 def get_iterator(fileName):
+    """ Creates an iterator for csv input data.
+    Input
+    fileName: name of the csv file
+    Output
+    Iterator
+    """
+    
     return csv.DictReader((x for x in open(fileName)), delimiter="\t")
 
 def get_all_mappings(mapping):
+    """ Gets the mappings between numeric ids and string ids for users or
+    items.
+    Input:
+    mapping -> mappings provided by the lightFM dataset
+    Output:
+    items -> list of items or users
+    item2ind -> dictionary relating items / users to their indices
+    ind2item -> dictionary relating indices to items / users
+    """
     item2ind = {}
     ind2item = {}
     for item,ind in mapping.items():
@@ -27,13 +45,19 @@ def get_all_mappings(mapping):
     return items,item2ind,ind2item
 
 def get_read_fics(user,interactions_csr):
+    """ Gets the list of items already read by the user
+    Input:
+    user -> index of the user of interest
+    interactions_csr -> csr matrix containing the user to item table
+    Output:
+    read -> collection of items read by the user"""
     user_list = interactions_csr[user].toarray().reshape(-1)
     read = np.where(user_list != 0.0)
     read = set(read[0])
     return read
 
 def sample_hyperparameters():
-
+    """ Randomly provides hyperparameters for exploration"""
     while True:
         yield {
             "no_components": np.random.randint(45, 100),
@@ -45,33 +69,6 @@ def sample_hyperparameters():
             "max_sampled": np.random.randint(5, 20),
             "num_epochs": np.random.randint(5, 50),
         }
-
-def get_word_matrix(metadata,word_method,number_words):
-    if word_method == "tfidf":    
-        model = TfidfVectorizer(stop_words="english",max_features=number_words,max_df=0.95) 
-        word_matrix = model.fit_transform(metadata)
-        vocabulary = model.vocabulary_
-    else:
-        model = CountVectorizer(stop_words="english",max_features=number_words,max_df=0.95)
-        model.fit(metadata)
-        word_matrix = model.transform(metadata)
-        vocabulary = count_vec.vocabulary_
-    return word_matrix,vocabulary,model
-
-def create_bag_of_words(df, list_fics):
-    """ Creates the word matrix.
-    Input: df -> dataframe containing all the information considered
-    Output: 
-        word_matrix -> matrix that relates fics to tokens
-        df -> dataframe that now contains the "metadata" column
-    """
-    df_train = df[df["idName"].isin(list_fics)]
-    print(df_train.shape)
-    w_tags, vocab_tags, model_tags = get_word_matrix(df_train["additional_tags"],args.word_method,args.numW)
-    w_char, vocab_char, model_char = get_word_matrix(df_train["characters"],args.word_method,args.numW)
-    w_rel, vocab_rel, model_rel = get_word_matrix(df_train["relationships"],args.word_method,args.numW)
-    word_matrix = sparse.hstack([w_tags,w_char,w_rel])
-    return word_matrix
 
 parser = argparse.ArgumentParser(description="Content based recommender")
 parser.add_argument("-i",dest="metadataFile",action="store",default=None,\
@@ -106,35 +103,58 @@ parser.add_argument("-w",dest="word_method",action="store",\
     choices=["tfidf","counts"],default="tfidf",help="Method used to \
     create the word matrix")
 parser.add_argument("--number_words",dest="numW",action="store",type=int,\
-    default=10000,help="Number of words in Tfid analysis")
+    default=10000,help="Number of words in analysis")
+parser.add_argument("--add_tags",dest="addT",action="store_true",\
+    help="Adds additional tags to build the word matrix")
+parser.add_argument("--add_characters",dest="addC",action="store_true",\
+    help="Adds character information to build the word matrix")
+parser.add_argument("--add_relationships",dest="addR",action="store_true",\
+    help="Adds relationship information to build the word matrix")
+parser.add_argument("--add_authors",dest="addA",action="store_true",\
+    help="Adds author name to build the word matrix")
+parser.add_argument("--add_fandoms",dest="addF",action="store_true",\
+    help="Adds fandom information to build the word matrix")
+parser.add_argument("--print_vocabulary",dest="printVoc",action="store",\
+    default=None,help="Name of a file where the vocabulary obtained in the\
+    bag of words will be printed. If empty it will not be printed")
+parser.add_argument("--threads",dest="threads",action="store",type=int,\
+    default=6,help="Number of threads used by lightFM")
 
 
 
 args = parser.parse_args()
 
-print("Creating dataset...")
+print("Creating dataset")
 dataset = Dataset()
-dataset.fit((x["user"] for x in get_iterator(args.user2item)),(x["item"] for x in get_iterator(args.user2item)))
+dataset.fit((x["user"] for x in get_iterator(args.user2item)),\
+    (x["item"] for x in get_iterator(args.user2item)))
 users, user2ind, ind2user = get_all_mappings(dataset.mapping()[0])
 items, item2ind, ind2item = get_all_mappings(dataset.mapping()[-1])
-(interactions, weights) = dataset.build_interactions(((x["user"], x["item"]) for x in get_iterator(args.user2item)))
+(interactions, weights) = dataset.build_interactions(((x["user"], x["item"]) \
+    for x in get_iterator(args.user2item)))
 interactions_csr = interactions.tocsr()
 
 if args.metadataFile:
     #Load metadata into memory
     df = pd.read_csv(args.metadataFile,sep="\t",na_values="-",\
      usecols=["idName","title","author","additional_tags","characters",\
-     "relationships"])
+     "relationships","fandoms"])
     df['idName'] = df['idName'].astype("str")
     df = df.fillna("")
 
     #Create a list with fics under consideration
     list_fics = [ind2item[x] for x in items]
-    print(list_fics)
+    
+    #Decide which information will be used for the bag of words
+    addT,addC,addA,addR,addF = args.addT,args.addC,args.addA,args.addR,args.addF
+    if not addT and not addC and not addA and not addR and not addF:
+        addT, addC, addR, addA, addF = True, True, True, True, True
 
     #Create bag of words
-    item_features = create_bag_of_words(df,list_fics)
+    item_features, main_vocab = CF.create_bag_of_words(df,list_fics,addT,\
+                    addC, addR, addA,addF, args.word_method, args.numW)
     
+    #Format features to add them in the model
     eye = sparse.eye(item_features.shape[0], item_features.shape[0]).tocsr()
     item_features_concat = sparse.hstack((eye, item_features))
     item_features_concat = item_features_concat.tocsr().astype(np.float32)
@@ -146,10 +166,11 @@ if args.explore:
         num_epochs = hyper.pop("num_epochs")
 
         model = LightFM(**hyper)
-        if args.metadata:
-            model.fit(interactions,epochs=num_epochs, num_threads=8,sample_weight=weights,item_features=item_features)
+        if args.metadataFile:
+            model.fit(interactions,epochs=num_epochs, num_threads=args.threads,\
+                item_features=item_features)
         else:
-            model.fit(interactions,epochs=num_epochs, num_threads=8,sample_weight=weights)
+            model.fit(interactions,epochs=num_epochs, num_threads=args.threads)
 
         print("Getting predictions...")
         with open(args.outfileName+"."+str(num)+".txt","w") as outfile:
@@ -180,7 +201,12 @@ else:
         }
     num_epochs = args.num_epochs
     model = LightFM(**hyper)
-    model.fit(interactions,epochs=num_epochs, num_threads=8)
+    if args.metadataFile:
+        model.fit(interactions,epochs=num_epochs, num_threads=8,\
+            item_features=item_features)
+    else:
+        model.fit(interactions,epochs=num_epochs,\
+            num_threads=8)
     print("Getting predictions...")
     with open(args.outfileName,"w") as outfile:
         for m in hyper:

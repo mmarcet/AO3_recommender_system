@@ -78,7 +78,7 @@ parser.add_argument("--calcWholeMatrix",dest="calc_whole",action="store_true",\
     help="Calculates the whole similarity matrix at once instead of going\
     user by user, it's faster but needs more RAM.")
 parser.add_argument("--threads",dest="threads",action="store",type=int,\
-    help="Threads to use when calculating whole matrix.")
+    default=6,help="Threads to use when calculating whole matrix.")
 parser.add_argument("--num_users",dest="numU",action="store",type=int,\
     default=50,help="Number of most similar users to consider when making\
     recommendations")

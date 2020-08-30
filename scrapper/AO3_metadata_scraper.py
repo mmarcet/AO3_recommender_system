@@ -77,8 +77,11 @@ def get_comments(soup, idName, authorName):
     by a single user are collapsed into one single string """
     number_of_comment_pages = soup.find_all(class_="pagination actions")
     if len(number_of_comment_pages) != 0:
-        number_of_comment_pages = str(soup.find_all(class_="pagination actions")[1].find_all("a")[-2]).split(">")[1].split("<")[0]
-        comment_pages = ["https://archiveofourown.org/works/"+idName+"?page="+str(a)+"&show_comments=true&view_full_work=true#comments" for a in range(1,int(number_of_comment_pages)+1)]
+        number_of_comment_pages = str(soup.find_all(class_="pagination actions")[1].\
+            find_all("a")[-2]).split(">")[1].split("<")[0]
+        comment_pages = ["https://archiveofourown.org/works/"+idName+\
+            "?page="+str(a)+"&show_comments=true&view_full_work=true#comments"\
+             for a in range(1,int(number_of_comment_pages)+1)]
     else:
         #The first page is already loaded, so no need to save it
         comment_pages = []
@@ -123,11 +126,16 @@ def get_metadata(soup,baseHTML):
         metadata[idName]["numChapters"] = numChapters
         
         # Tags:
-        metadata[idName]["fandoms"] = "|".join([f.get_text() for f in tag.find_all(class_="fandoms heading")[0].find_all("a",class_="tag")])
-        metadata[idName]["required_tags"] = "|".join([f.get_text() for f in tag.find_all(class_="required-tags")[0].find_all("a")])
-        metadata[idName]["relationships"] = "|".join([f.get_text() for f in tag.find_all(class_="relationships")])
-        metadata[idName]["characters"] = "|".join([f.get_text() for f in tag.find_all(class_="characters")])
-        metadata[idName]["additional_tags"] = "|".join([f.get_text() for f in tag.find_all(class_="freeforms")])
+        metadata[idName]["fandoms"] = "|".join([f.get_text() \
+            for f in tag.find_all(class_="fandoms heading")[0].find_all("a",class_="tag")])
+        metadata[idName]["required_tags"] = "|".join([f.get_text() \
+            for f in tag.find_all(class_="required-tags")[0].find_all("a")])
+        metadata[idName]["relationships"] = "|".join([f.get_text() \
+            for f in tag.find_all(class_="relationships")])
+        metadata[idName]["characters"] = "|".join([f.get_text()\
+            for f in tag.find_all(class_="characters")])
+        metadata[idName]["additional_tags"] = "|".join([f.get_text()\
+            for f in tag.find_all(class_="freeforms")])
         
         
         #Aprovals
@@ -212,11 +220,18 @@ def create_folder(folderName):
         os.system(cmd)
 
 parser = argparse.ArgumentParser(description="Obtain metadata for AO3")
-parser.add_argument("-l",dest="linkName",action="store",required=True,help="Link name for the main list of works, put link between \"\" when complex link ")
-parser.add_argument("-o",dest="outFolder",action="store",default="results/",help="Folder name where tables will be stored")
-parser.add_argument("-c",dest="continueDownload",action="store",default="1",help="Restart point, give last page processed")
-parser.add_argument("--base_html",dest="baseHTML",action="store",default="https://archiveofourown.org/",help="Main HTML page for the archive")
-parser.add_argument("--download_comments",dest="downComments",action="store_true",help="Downloads comments on top of regular metadata. (Takes a long time due to increasing number of downloads)")
+parser.add_argument("-l",dest="linkName",action="store",required=True,\
+    help="Link name for the main list of works, put link between \"\" when complex link ")
+parser.add_argument("-o",dest="outFolder",action="store",default="results/",\
+    help="Folder name where tables will be stored")
+parser.add_argument("-c",dest="continueDownload",action="store",default="1",\
+    help="Restart point, give last page processed")
+parser.add_argument("--base_html",dest="baseHTML",action="store",\
+    default="https://archiveofourown.org/",\
+    help="Main HTML page for the archive")
+parser.add_argument("--download_comments",dest="downComments",\
+    action="store_true",help="Downloads comments on top of regular metadata. \
+    (Takes a long time due to increasing number of downloads)")
 args = parser.parse_args()
 
 """ Base archive link """
@@ -227,7 +242,8 @@ This will always be done for the first page"""
 soup = get_webpage(args.linkName)
 
 """ Obtain the total number of pages within the provided link """
-number_of_pages = int(str(soup.find_all(class_="pagination actions")[1].find_all("a")[-2]).split(">")[1].split("<")[0])
+number_of_pages = int(str(soup.find_all(class_="pagination actions")[1].\
+    find_all("a")[-2]).split(">")[1].split("<")[0])
 
 if number_of_pages == 5000:
     print("WARNING: Be aware that 5000 is the maximum amount of pages\

@@ -4,6 +4,7 @@ import numpy as np
 import scipy.sparse as sparse
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.feature_extraction.text import CountVectorizer
+import pandas as pd
 
 ##Common modules
 def map_ids(row,mapper):

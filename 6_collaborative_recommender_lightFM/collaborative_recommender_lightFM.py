@@ -102,7 +102,7 @@ parser.add_argument("-num_epochs",dest="num_epochs",type=int,\
 parser.add_argument("-w",dest="word_method",action="store",\
     choices=["tfidf","counts"],default="tfidf",help="Method used to \
     create the word matrix")
-parser.add_argument("--number_words",dest="numW",action="store",type=int,\
+parser.add_argument("--num_words",dest="numW",action="store",type=int,\
     default=10000,help="Number of words in analysis")
 parser.add_argument("--add_tags",dest="addT",action="store_true",\
     help="Adds additional tags to build the word matrix")
@@ -168,7 +168,7 @@ if args.explore:
         model = LightFM(**hyper)
         if args.metadataFile:
             model.fit(interactions,epochs=num_epochs, num_threads=args.threads,\
-                item_features=item_features)
+                item_features=item_features_concat)
         else:
             model.fit(interactions,epochs=num_epochs, num_threads=args.threads)
 
@@ -203,7 +203,7 @@ else:
     model = LightFM(**hyper)
     if args.metadataFile:
         model.fit(interactions,epochs=num_epochs, num_threads=8,\
-            item_features=item_features)
+            item_features=item_features_concat)
     else:
         model.fit(interactions,epochs=num_epochs,\
             num_threads=8)

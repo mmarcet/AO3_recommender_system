@@ -1,0 +1,8 @@
+no_components 79
+learning_schedule adagrad
+loss warp-kos
+learning_rate 0.05417638402915256
+item_alpha 3.479338132843395e-10
+user_alpha 3.412974634803209e-10
+max_sampled 10
+num_epochs 25

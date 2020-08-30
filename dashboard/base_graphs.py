@@ -17,13 +17,13 @@ def parse_date(x):
 
 df_met = pd.read_csv("../data/metadata_fics.cleaned.txt",sep="\t",na_values="-",parse_dates=["published_date","date_update"],date_parser=parse_date,usecols=["idName","author","title","published_date","date_update","numWords","numChapters","numHits","numKudos","numBookmarks","numComments"])
 
-df = pd.read_csv("../data/less_read_dataset/training_user_item.txt",sep="\t",names=["user","fic","rating"])
-df_cnt = pd.DataFrame(df.groupby('fic').size(), columns=['count'])
+df = pd.read_csv("../data/less_read_dataset/training_user_item.txt",sep="\t")
+df_cnt = pd.DataFrame(df.groupby('item').size(), columns=['count'])
 df_cnt = df_cnt.sort_values('count', ascending=False).reset_index()
 df_cnt = df_cnt.reset_index()
 
-df_red = df_met[df_met["idName"].isin(df_cnt["fic"].to_list())]
-df_red = df_cnt.merge(df_red, left_on='fic', right_on='idName')
+df_red = df_met[df_met["idName"].isin(df_cnt["item"].to_list())]
+df_red = df_cnt.merge(df_red, left_on='item', right_on='idName')
 
 df_red.to_csv("info_fics.csv", index=False) 
 

@@ -251,6 +251,9 @@ def get_user2author_table(inputFile,outFile):
                 fics_total = authors[author]
                 if fics_total >= 5:
                     rating = int(len(fics) / fics_total * 5)
+                    if rating == 0:
+                        if len(fics) != 0:
+                            rating = 1
                     print(u+"\t"+author+"\t"+str(rating),file=outfile)
     
     
@@ -265,7 +268,7 @@ parser.add_argument("--obtain_user_item_file",dest="user2item",\
     action="store_true",help="Creates a user to item file")
 parser.add_argument("--obtain_user_authors_file",dest="user2author",\
     action="store_true",help="Creates a user to author file")
-parser.add_argument("--split_data_random",dest="split_data",action="store_true",\
+parser.add_argument("--split_data",dest="split_data",action="store_true",\
     help="Splits data into training, validation and test randomly masking items")
 parser.add_argument("--min_num_reads",dest="minNumReads",type=int,
     action="store",default=0,help="Number of times a fic has to have \

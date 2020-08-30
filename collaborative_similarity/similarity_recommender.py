@@ -1,15 +1,9 @@
 #!/usr/bin/env python
 
-#Recommender system based on Jaccard
+#Recommender system based cosine similarity between users
 
-import implicit
 import pandas as pd
-import scipy.sparse as sparse
-import pickle
-import random
 import numpy as np
-from sklearn import metrics
-import itertools
 import argparse
 from tqdm import tqdm
 from sklearn.metrics import pairwise_distances
@@ -92,10 +86,10 @@ args = parser.parse_args()
 
 #Loads table into pandas and creates sparse matrix
 print("Building sparse matrices")
-df_train = pd.read_csv(args.user2item,sep="\t",\
+df_ui = pd.read_csv(args.user2item,sep="\t",\
             dtype={"user":str,"item":str,"rating":float})
-ind2item, item2ind, user2ind, ind2user = CF.create_indices(df_train)
-user_item = CF.create_sparse_matrix(df_train,user2ind,item2ind)
+ind2item, item2ind, user2ind, ind2user = CF.create_indices(df_ui)
+user_item = CF.create_sparse_matrix(df_ui,user2ind,item2ind)
 
 if args.calc_whole:
     #Calculates similarity matrix of users against users

@@ -362,11 +362,11 @@ def get_author_metadata(inputFile,outputFile):
     
     with open(outputFile,"w") as outfile:
         print("idName\tauthor\tpublished_date\tdate_update\tnumWords\t\
-            fandoms\trelationships\tcharacters\tadditional_tags\tnumHits\t\
-            numKudos\tnumBookmarks\tnumComments",file=outfile)
+fandoms\trelationships\tcharacters\tadditional_tags\tnumHits\t\
+numKudos\tnumBookmarks\tnumComments",file=outfile)
         for author, info in metadata.items():
             string = str(author)+"\t"+author
-            string += "\t"+str(info["date1"]).split()[0]+"\t"
+            string += "\t"+str(info["date1"]).split()[0]
             string += "\t"+str(info["date2"]).split()[0]
             string += "\t"+str(int(np.average(info["numWords"])))
             fandoms = list(info["fandoms"].keys())

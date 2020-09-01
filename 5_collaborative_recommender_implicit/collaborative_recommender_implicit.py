@@ -38,12 +38,10 @@ def print_recommendations(model,user_item,K,outfileName,hyper):
     """
     with open(outfileName,"w") as outfileRecom:
         if len(hyper) != 0:
-            print("#########################################",file=outfile)
             for h in hyper:
                 print(h,hyper[h],file=outfileRecom)
         recommendations = model.recommend_all(user_item, K,\
                             filter_already_liked_items=False)
-            print("#########################################",file=outfile)
         for u in range(user_item.shape[0]):
             print(CF.map_ids(u,ind2user)+"\t"+";".join([str(CF.map_ids(x,ind2item))\
                 for x in recommendations[u]]),file=outfileRecom)
@@ -68,7 +66,8 @@ parser.add_argument("-l","--learning_rate",dest="learning_rate",action="store",\
     type=float,default=0.01,help="Learning rate")
 parser.add_argument("-k","--num_recommendations",dest="k",action="store",\
     type=int,default=50,help="Number of recommendations per user")
-parser.add_argument("-m","--model",dest="model",action="store",default="ALS",\
+parser.add_argument("-m","--model",dest="model",action="store",\
+    choices=["ALS", "LMF", "BPR"],default="ALS",\
     help="Model to use - choose between ALS, LMF, BPR")
 parser.add_argument("-n","--num_explorations",dest="numExp",action="store",\
     type=int,default=30,help="Number of times the hyperparameter space will\
@@ -105,7 +104,7 @@ if not args.explore:
 else:
     #Explore the hyperparameter space
     num = 1
-    for hyper in itertools.islice(sample_hyperparameters_ALS(), \
+    for hyper in itertools.islice(sample_hyperparameters(), \
                                     args.numExp):
         alpha = hyper.pop("alpha")
         model = hyper.pop("model")

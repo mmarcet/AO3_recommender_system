@@ -84,7 +84,7 @@ user_item = CF.create_sparse_matrix(df_ui,user2ind,item2ind)
 
 #Load metadata into memory
 df = pd.read_csv(args.metadataFile,sep="\t",na_values="-",\
-     usecols=["idName","title","author","fandoms","additional_tags","characters",\
+     usecols=["idName","author","fandoms","additional_tags","characters",\
      "relationships"],dtype={"idName":str})
 df = df.fillna("")
 

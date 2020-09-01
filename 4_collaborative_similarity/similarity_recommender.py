@@ -13,7 +13,7 @@ sys.path.append("../")
 import common_functions as CF
 
 
-def get_similar_users(user_vector,user_item,sim_matrix,user_ind):
+def get_similar_users(user_vector,user_item,sim_matrix,user_ind, sim_thr):
     """ Returns the list of users that are closest to the current user
     and their similarity.
     Input: 
@@ -21,6 +21,8 @@ def get_similar_users(user_vector,user_item,sim_matrix,user_ind):
     user_item -> user to item sparse matrix
     sim_matrix -> pre-calculated similarity matrix
     user_ind -> index of the current user
+    sim_thr -> Similarity threshold. users below this threshold will
+        not be used
     
     Output:
     close_users -> a list of indices of the closest users
@@ -33,7 +35,7 @@ def get_similar_users(user_vector,user_item,sim_matrix,user_ind):
     else:
         similarity_vector = sim_matrix[user_ind]
     similarity_scores = list(enumerate(similarity_vector))
-    similarity_scores_filtered = [x for x in similarity_scores if x[1] > 0.01]
+    similarity_scores_filtered = [x for x in similarity_scores if x[1] > sim_thr]
     similarity_scores_filtered = sorted(similarity_scores_filtered,\
                                         key=lambda x: x[1], reverse=True)
     close_users = [x[0] for x in similarity_scores_filtered[1:args.numU+1]]
@@ -103,7 +105,7 @@ with open(args.outfileName,"w") as outfile:
         user_vector = user_item[a]
         read_items = np.where(user_item[a].toarray().reshape(-1) != 0)[0]     
         close_users, similarity_users = get_similar_users(user_vector,\
-                                        user_item,sim_matrix,a)
+                                        user_item,sim_matrix,a,args.thr)
         recom = get_recommendations(close_users,similarity_users,\
                                     user_item, read_items)
         if len(recom) != 0:

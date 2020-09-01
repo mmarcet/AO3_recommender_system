@@ -9,6 +9,7 @@ import argparse
 from tqdm import tqdm
 
 import sys
+sys.path.append(".")
 sys.path.append("../")
 import common_functions as CF
 
@@ -41,7 +42,7 @@ with open(args.outfileName,"w") as outfile:
     for user in tqdm(user2read):
         listFics = user2read[user]
         df_user = df[~df["idName"].isin(listFics)]
-        if args.model == "numHits":
+        if args.model == "NumHits":
             recom = df_user.sort_values(by=["numHits"],ascending=False)["idName"].to_list()[:K]
         elif args.model == "NumComments":
             recom = df_user.sort_values(by=["numComments"],ascending=False)["idName"].to_list()[:K]

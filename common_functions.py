@@ -60,7 +60,7 @@ def get_word_matrix(metadata,word_method,number_words):
             max_features=number_words,max_df=0.98)
         model.fit(metadata)
         word_matrix = model.transform(metadata)
-        vocabulary = count_vec.vocabulary_
+        vocabulary = model.vocabulary_
     return word_matrix,vocabulary
 
 def create_bag_of_words(df, list_fics, addT, addC, addA, addR, addF, word_method, num_words):

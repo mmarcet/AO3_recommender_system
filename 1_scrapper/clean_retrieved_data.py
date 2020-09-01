@@ -4,12 +4,30 @@ import pandas as pd
 import random
 from tqdm import tqdm
 import argparse
+import numpy as np
 
+import sys
+sys.path.append("../")
+sys.path.append(".")
+import common_functions as CF
 
 #Clean metadata obtained from the AO3 scrapper and generate the input
 #files for the different programs
 
 def curate_dataset(training, validation, test, users):
+    """ Given a set of users it tries to find a set of users and items
+    that are represented in all three sets.
+    
+    Input:
+    training -> user item dictionary for training
+    validation -> user item dictionary for validation
+    test -> user item dictionary for test
+    users -> initial selected set of users
+    
+    Output:
+    toKeepUsers -> List of users that should be kept
+    toKeepFics -> list of items that should be kept
+    """
     toKeepUsers = set([])
     toKeepFics = set([])
     rounds = 1
@@ -23,6 +41,16 @@ def curate_dataset(training, validation, test, users):
     return toKeepUsers, toKeepFics
     
 def map_fic_presence(training, validation, test, users):
+    """ Checks which items are present in the three datasets
+    Input:
+    training -> user item dictionary for training
+    validation -> user item dictionary for validation
+    test -> user item dictionary for test
+    users -> initial selected set of users
+    Output:
+    toKeepFics -> returns a list of items that are present in the three 
+        groups
+    """
     fics_taken = {}
     for user in users:
         for f in training[user]:
@@ -44,6 +72,19 @@ def map_fic_presence(training, validation, test, users):
     return toKeepFics
 
 def map_user_presence(training, validation, test, users, fics):
+    """ Checks that, after deleting items that were not in all three groups,
+    all users are still in the three groups.
+        Input:
+    training -> user item dictionary for training
+    validation -> user item dictionary for validation
+    test -> user item dictionary for test
+    users -> initial selected set of users
+    fics -> List of fics that should be kept
+    Output:
+    toKeepUsers -> returns a list of usersthat are present in the three 
+        groups
+    """ 
+    
     users_taken = {}
     for user in users:
         if user not in users_taken:
@@ -163,6 +204,7 @@ def clean_metadata(infileName,outfileName):
                         #entity then substitute | in tags, characters and 
                         #relationships for spaces so that they can be interpreted 
                         #as different words
+                        dades[9] = dades[9].replace(" ","").replace("/","").replace("|"," ")
                         dades[11] = dades[11].replace(" ","").replace("/","").replace("|"," ")
                         dades[12] = dades[12].replace(" ","").replace("|"," ")
                         dades[13] = dades[13].replace(" ","").replace("|"," ")
@@ -255,6 +297,95 @@ def get_user2author_table(inputFile,outFile):
                         if len(fics) != 0:
                             rating = 1
                     print(u+"\t"+author+"\t"+str(rating),file=outfile)
+
+def get_author_metadata(inputFile,outputFile):
+    """Summaryzes data from different works to create the author metadata.
+    Input:
+    inputFile -> contains the cleaned metadata file
+    outputFile -> contains the name of the file where the metadata will be
+        printed
+    """    
+    metadata = {}
+    with open(inputFile,"r") as infile:
+        for line in infile:
+            line = line.strip()
+            dades = line.split("\t")
+            if "numHits" and "numKudos" in line:
+                pass
+            else:
+                author = dades[1]
+                if author not in metadata:
+                    metadata[author] = {}
+                if "date1" not in metadata[author]:
+                    metadata[author]["date1"] = CF.parse_date(dades[3])
+                elif metadata[author]["date1"] < CF.parse_date(dades[3]):
+                    metadata[author]["date1"] = CF.parse_date(dades[3])
+                if "date2" not in metadata[author]:
+                    metadata[author]["date2"] = CF.parse_date(dades[4])
+                elif metadata[author]["date2"] < CF.parse_date(dades[4]):
+                    metadata[author]["date2"] = CF.parse_date(dades[4])
+                if "numWords" not in metadata[author]:
+                    metadata[author]["numWords"] = []
+                    metadata[author]["fandoms"] = {}
+                    metadata[author]["relationships"] = {}
+                    metadata[author]["characters"] = {}
+                    metadata[author]["additional_tags"] = {}
+                    metadata[author]["numHits"] = []
+                    metadata[author]["numKudos"] = []
+                    metadata[author]["numBookmarks"] = []
+                    metadata[author]["numComments"] = []
+                metadata[author]["numWords"].append(int(dades[6]))
+                metadata[author]["numHits"].append(int(dades[14]))
+                metadata[author]["numKudos"].append(int(dades[15]))
+                metadata[author]["numBookmarks"].append(int(dades[16]))
+                metadata[author]["numComments"].append(int(dades[17]))
+                fandoms = dades[9].split()
+                for f in fandoms:
+                    if f not in metadata[author]["fandoms"]:
+                        metadata[author]["fandoms"][f] = 0
+                    metadata[author]["fandoms"][f] += 1
+                relationships = dades[11].split()
+                for f in relationships:
+                    if f not in metadata[author]["relationships"]:
+                        metadata[author]["relationships"][f] = 0
+                    metadata[author]["relationships"][f] += 1
+                characters = dades[12].split()
+                for f in characters:
+                    if f not in metadata[author]["characters"]:
+                        metadata[author]["characters"][f] = 0
+                    metadata[author]["characters"][f] += 1
+                additional_tags = dades[13].split()
+                for f in additional_tags:
+                    if f not in metadata[author]["additional_tags"]:
+                        metadata[author]["additional_tags"][f] = 0
+                    metadata[author]["additional_tags"][f] += 1
+    
+    with open(outputFile,"w") as outfile:
+        print("idName\tauthor\tpublished_date\tdate_update\tnumWords\t\
+            fandoms\trelationships\tcharacters\tadditional_tags\tnumHits\t\
+            numKudos\tnumBookmarks\tnumComments",file=outfile)
+        for author, info in metadata.items():
+            string = str(author)+"\t"+author
+            string += "\t"+str(info["date1"]).split()[0]+"\t"
+            string += "\t"+str(info["date2"]).split()[0]
+            string += "\t"+str(int(np.average(info["numWords"])))
+            fandoms = list(info["fandoms"].keys())
+            fandoms = sorted(fandoms,key=lambda x: info["fandoms"][x],reverse=True)
+            string += "\t"+" ".join(fandoms[:10])
+            relationships = list(info["relationships"].keys())
+            relationships = sorted(relationships,key=lambda x: info["relationships"][x],reverse=True)
+            string += "\t"+" ".join(relationships[:10])
+            characters = list(info["characters"].keys())
+            characters = sorted(characters,key=lambda x: info["characters"][x],reverse=True)
+            string += "\t"+" ".join(characters[:10])
+            additional_tags = list(info["additional_tags"].keys())
+            additional_tags = sorted(additional_tags,key=lambda x: info["additional_tags"][x],reverse=True)
+            string += "\t"+" ".join(additional_tags[:20])
+            string += "\t"+str(int(np.average(info["numHits"])))
+            string += "\t"+str(int(np.average(info["numKudos"])))
+            string += "\t"+str(int(np.average(info["numBookmarks"])))
+            string += "\t"+str(int(np.average(info["numComments"])))
+            print(string,file=outfile)
     
     
 parser = argparse.ArgumentParser(description="Content based recommender")
@@ -268,6 +399,8 @@ parser.add_argument("--obtain_user_item_file",dest="user2item",\
     action="store_true",help="Creates a user to item file")
 parser.add_argument("--obtain_user_authors_file",dest="user2author",\
     action="store_true",help="Creates a user to author file")
+parser.add_argument("--obtain_author_metadata",dest="author_meta",\
+    action="store_true",help="Creates an author metadata file")
 parser.add_argument("--split_data",dest="split_data",action="store_true",\
     help="Splits data into training, validation and test randomly masking items")
 parser.add_argument("--min_num_reads",dest="minNumReads",type=int,
@@ -308,5 +441,7 @@ elif args.user2author:
     if not args.outFile:
         exit("An outfile name needs to be provided (-o)")
     get_user2author_table(args.inputFile,args.outFile)
+elif args.author_meta:
+    get_author_metadata(args.inputFile,args.outFile)
     
 

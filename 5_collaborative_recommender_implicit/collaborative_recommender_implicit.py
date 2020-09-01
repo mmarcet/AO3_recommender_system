@@ -14,28 +14,19 @@ import argparse
 
 import sys
 sys.path.append("../")
+sys.path.append(".")
 import common_functions as CF
 
-def sample_hyperparameters_ALS():
+def sample_hyperparameters():
     """ Randomly provides hyperparameters for exploration"""
     while True:
         yield {
-            "factors": np.random.randint(400,750),
-            "regularization":np.random.exponential(0.01),
-            "iterations":np.random.randint(5,100),
-            "alpha":np.random.randint(40,100)
-        }
-
-def sample_hyperparameters_others():
-    """ Randomly provides hyperparameters for exploration"""
-    while True:
-        yield {
-            "factors": np.random.randint(400,750),
+            "factors": np.random.randint(50,1000),
             "regularization":np.random.exponential(0.01),
             "iterations":np.random.randint(5,100),
             "learning_rate":np.random.exponential(0.01),
-            "alpha":np.random.randint(40,100),
-            "model":np.random.choice(["BPR","LMF"])
+            "alpha":np.random.randint(10,100),
+            "model":np.random.choice(["ALS","BPR","LMF"])
         }
 
 def print_recommendations(model,user_item,K,outfileName,hyper):
@@ -47,10 +38,12 @@ def print_recommendations(model,user_item,K,outfileName,hyper):
     """
     with open(outfileName,"w") as outfileRecom:
         if len(hyper) != 0:
+            print("#########################################",file=outfile)
             for h in hyper:
                 print(h,hyper[h],file=outfileRecom)
         recommendations = model.recommend_all(user_item, K,\
                             filter_already_liked_items=False)
+            print("#########################################",file=outfile)
         for u in range(user_item.shape[0]):
             print(CF.map_ids(u,ind2user)+"\t"+";".join([str(CF.map_ids(x,ind2item))\
                 for x in recommendations[u]]),file=outfileRecom)
@@ -92,62 +85,41 @@ item_user = user_item.T
 
 K=args.k
 
-#As ALS has different hyperparameters it is calculated separatedly if chosen
-if args.model == "ALS":
-    if not args.explore:
-        #Provide recommendations with hyperparameters given by the user
-        alpha = args.alpha
-        model = implicit.als.AlternatingLeastSquares(
-                                factors=args.factors,
-                                regularization=args.regularization,
-                                iterations=args.iterations)
-        model.fit(item_user*alpha)
-        print_recommendations(model,user_item,K,args.outfileName,[])
-    else:
-        #Explore the hyperparameter space
-        num = 1
-        for hyper in itertools.islice(sample_hyperparameters_ALS(), \
-                                        args.numExp):
-            alpha = hyper.pop("alpha")
-            model = implicit.als.AlternatingLeastSquares(**hyper)
-            model.fit(item_user*alpha)
-            hyper["alpha"] = alpha
-            print_recommendations(model,user_item,K,\
-                        args.outfileName+".ALS."+str(num)+".txt",hyper)
-            num += 1
+if not args.explore:
+    #Provide recommendations with hyperparameters given by the user
+    alpha = args.alpha
+    hyper = {"factors":args.factors,\
+                "regularization":args.regularization,\
+                "iterations":args.iterations}
+
+    if args.model == "ALS":            
+        model = implicit.als.AlternatingLeastSquares(**hyper)
+    elif args.model == "LMF":
+        hyper["learning_rate"] = args.learning_rate
+        model = implicit.lmf.LogisticMatrixFactorization(**hyper)
+    elif args.model == "BPR":
+        hyper["learning_rate"] = args.learning_rate
+        model = implicit.bpr.BayesianPersonalizedRanking(**hyper)
+    model.fit(item_user*alpha)
+    print_recommendations(model,user_item,K,args.outfileName,[])
 else:
-    if args.explore:
-        #Explore the hyperparameter space
-        num = 1
-        for hyper in itertools.islice(sample_hyperparameters_others(), \
+    #Explore the hyperparameter space
+    num = 1
+    for hyper in itertools.islice(sample_hyperparameters_ALS(), \
                                     args.numExp):
-            m = hyper.pop("model")
-            alpha = hyper.pop("alpha")
-            if m == "LMF":
-                model = implicit.lmf.LogisticMatrixFactorization(**hyper)
-            else:
-                model = implicit.bpr.BayesianPersonalizedRanking(**hyper)
-            model.fit(item_user*alpha)
-            hyper["model"] = m
-            hyper["alpha"] = alpha
-            print_recommendations(model,user_item,K,\
-                    args.outfileName+".others."+str(num)+".txt",hyper)
-            num += 1
-    else:
-        #Provide recommendations with hyperparameters given by the user
-        if args.model == "LMF":
-            model = implicit.lmf.LogisticMatrixFactorization(
-                        factors=args.factors,
-                        learning_rate=args.learning_rate,
-                        regularization=args.regularization,
-                        iterations=args.iterations)
-            model.fit(item_user*alpha)
-            print_recommendations(model,user_item,K,args.outFile,[])
-        else:
-            model = implicit.bpr.BayesianPersonalizedRanking(
-                        factors=args.factors, 
-                        learning_rate=args.learning_rate, 
-                        regularization=args.regularization,
-                        iterations=args.iterations)
-            model.fit(item_user*alpha)
-            print_recommendations(model,user_item,K,args.outfileName,[])
+        alpha = hyper.pop("alpha")
+        model = hyper.pop("model")
+        if model == "ALS":
+            learning_rate = hyper.pop("learning_rate")
+            model = implicit.als.AlternatingLeastSquares(**hyper)
+        elif model == "LMF":
+            model = implicit.lmf.LogisticMatrixFactorization(**hyper)
+        elif model == "BPR":
+            model = implicit.bpr.BayesianPersonalizedRanking(**hyper)
+        model.fit(item_user*alpha)
+        hyper["alpha"] = alpha
+        hyper["model"] = model
+        print_recommendations(model,user_item,K,\
+                    args.outfileName+str(num)+".txt",hyper)
+        num += 1
+

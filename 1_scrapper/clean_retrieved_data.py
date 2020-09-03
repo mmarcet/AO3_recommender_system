@@ -1,15 +1,34 @@
 #!/usr/bin/env python
 
-import pandas as pd
+"""
+  AO3_recommender - a recommendation system for fanfiction
+  Copyright (C) 2020 - Marina Marcet-Houben
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+
 import random
 from tqdm import tqdm
 import argparse
 import numpy as np
 
-import sys
-sys.path.append("../")
-sys.path.append(".")
-import common_functions as CF
+try:
+    import sys
+    sys.path.append(".")
+    sys.path.append("../")
+    import common_functions as CF
+except:
+    exit("The common_functions.py file needs to be in this folder or in the\
+parent folder for it to be imported")
 
 #Clean metadata obtained from the AO3 scrapper and generate the input
 #files for the different programs
@@ -388,7 +407,7 @@ numKudos\tnumBookmarks\tnumComments",file=outfile)
             print(string,file=outfile)
     
     
-parser = argparse.ArgumentParser(description="Content based recommender")
+parser = argparse.ArgumentParser(description="Clean downloaded data and create files for analysis")
 parser.add_argument("-i",dest="inputFile",action="store",required=True,\
     help="File containing raw or clean metadata")
 parser.add_argument("-o",dest="outFile",action="store",\

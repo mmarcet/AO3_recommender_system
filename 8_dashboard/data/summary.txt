@@ -1,0 +1,7 @@
+Recom	Names	f1@k	map@k
+L	Likes	0.0364	0.0090
+R	Random	0.0010	0.0002
+CB	Content_based	0.0033	0.0014
+SIM	Similarity	0.0917	0.0236
+MF_ALS	Matrix_factorization_ALS	0.2025	0.0815
+MF_BPR	Matrix_factorization_BPR	0.0859	0.0232

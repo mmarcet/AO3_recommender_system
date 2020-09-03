@@ -1,8 +1,21 @@
 #!/user/bin/env python
 
-#Build ALS_recommender based on implicit library
+"""
+  AO3_recommender - a recommendation system for fanfiction
+  Copyright (C) 2020 - Marina Marcet-Houben
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
 
-#Create matrices
+
 
 import implicit
 import pandas as pd
@@ -11,11 +24,17 @@ import random
 import numpy as np
 import itertools
 import argparse
+from tqdm import tqdm
+import pickle
 
-import sys
-sys.path.append("../")
-sys.path.append(".")
-import common_functions as CF
+try:
+    import sys
+    sys.path.append(".")
+    sys.path.append("../")
+    import common_functions as CF
+except:
+    exit("The common_functions.py file needs to be in this folder or in the\
+parent folder for it to be imported")
 
 def sample_hyperparameters():
     """ Randomly provides hyperparameters for exploration"""
@@ -24,7 +43,7 @@ def sample_hyperparameters():
             "factors": np.random.randint(50,1000),
             "regularization":np.random.exponential(0.01),
             "iterations":np.random.randint(5,100),
-            "learning_rate":np.random.exponential(0.01),
+            "learning_rate":np.random.exponential(0.001),
             "alpha":np.random.randint(10,100),
             "model":np.random.choice(["ALS","BPR","LMF"])
         }
@@ -46,12 +65,18 @@ def print_recommendations(model,user_item,K,outfileName,hyper):
             print(CF.map_ids(u,ind2user)+"\t"+";".join([str(CF.map_ids(x,ind2item))\
                 for x in recommendations[u]]),file=outfileRecom)
 
-parser = argparse.ArgumentParser(description="ALS recommender")
+parser = argparse.ArgumentParser(description="Matrix factorization recommender")
 parser.add_argument("-t",dest="user2item",action="store",required=True,\
     help="Table that contains the user to item information")
 parser.add_argument("-o",dest="outfileName",action="store",\
-    default="results.item2item.contentbased.txt",\
+    default="results.matrix_factorization.txt",\
     help="Output for all the recommendations")
+parser.add_argument("-o_i2i",dest="recom_i2i",action="store",\
+    default=None,\
+    help="Prints item to item recommendations, if left empty this will not be done")
+parser.add_argument("-o_model",dest="recom_model",action="store",\
+    default="results.model.txt",\
+    help="Saves a model into a file, will only happend out of exploration")
 parser.add_argument("-e","--explore",dest="explore",action="store_true",\
     help="Explores hyperparameters")
 parser.add_argument("-a","--alpha",dest="alpha",action="store",type=int,\
@@ -101,23 +126,36 @@ if not args.explore:
         model = implicit.bpr.BayesianPersonalizedRanking(**hyper)
     model.fit(item_user*alpha)
     print_recommendations(model,user_item,K,args.outfileName,[])
+    
+    #Does item2item recommendation if asked
+    if args.recom_i2i:
+        with open(args.recom_i2i, "w") as outfile:
+            for i in tqdm(range(item_user.shape[0])):
+                sim_items = [x[0] for x in model.similar_items(i,K+1) \
+                    if x[1] > 0][1:]
+                sim_items = [ind2item[x] for x in sim_items]
+                print(ind2item[i]+"\t"+";".join(sim_items),file=outfile)
+    
+    #Saves model into file
+    pickle.dump(model, open(args.recom_model, 'wb'))
+            
 else:
     #Explore the hyperparameter space
     num = 1
     for hyper in itertools.islice(sample_hyperparameters(), \
                                     args.numExp):
         alpha = hyper.pop("alpha")
-        model = hyper.pop("model")
-        if model == "ALS":
+        m = hyper.pop("model")
+        if m == "ALS":
             learning_rate = hyper.pop("learning_rate")
             model = implicit.als.AlternatingLeastSquares(**hyper)
-        elif model == "LMF":
+        elif m == "LMF":
             model = implicit.lmf.LogisticMatrixFactorization(**hyper)
-        elif model == "BPR":
+        elif m == "BPR":
             model = implicit.bpr.BayesianPersonalizedRanking(**hyper)
         model.fit(item_user*alpha)
         hyper["alpha"] = alpha
-        hyper["model"] = model
+        hyper["model"] = m
         print_recommendations(model,user_item,K,\
                     args.outfileName+str(num)+".txt",hyper)
         num += 1

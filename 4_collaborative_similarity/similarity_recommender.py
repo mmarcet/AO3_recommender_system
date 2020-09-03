@@ -1,5 +1,20 @@
 #!/usr/bin/env python
 
+"""
+  AO3_recommender - a recommendation system for fanfiction
+  Copyright (C) 2020 - Marina Marcet-Houben
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 #Recommender system based cosine similarity between users
 
 import pandas as pd
@@ -8,9 +23,14 @@ import argparse
 from tqdm import tqdm
 from sklearn.metrics import pairwise_distances
 
-import sys
-sys.path.append("../")
-import common_functions as CF
+try:
+    import sys
+    sys.path.append(".")
+    sys.path.append("../")
+    import common_functions as CF
+except:
+    exit("The common_functions.py file needs to be in this folder or in the\
+parent folder for it to be imported")
 
 
 def get_similar_users(user_vector,user_item,sim_matrix,user_ind, sim_thr):
@@ -75,7 +95,7 @@ parser.add_argument("-o",dest="outfileName",action="store",\
 parser.add_argument("-k",dest="numR",action="store",\
     type=int,default=15,help="Number of recommendations")
 parser.add_argument("--minSimilarity",dest="thr",action="store",type=float,\
-    default=0.1,help="Minimum similarity to be considered")
+    default=0.01,help="Minimum similarity to be considered")
 parser.add_argument("--calcWholeMatrix",dest="calc_whole",action="store_true",\
     help="Calculates the whole similarity matrix at once instead of going\
     user by user, it's faster but needs more RAM.")
@@ -110,3 +130,5 @@ with open(args.outfileName,"w") as outfile:
                                     user_item, read_items)
         if len(recom) != 0:
             print(ind2user[a]+"\t"+";".join(recom),file=outfile)
+
+

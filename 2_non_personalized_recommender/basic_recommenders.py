@@ -1,5 +1,20 @@
 #!/usr/bin/env python
 
+"""
+  AO3_recommender - a recommendation system for fanfiction
+  Copyright (C) 2020 - Marina Marcet-Houben
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 #Calculates recommendations for most popular fics and for random fics for
 #each user
 
@@ -8,10 +23,14 @@ import random
 import argparse
 from tqdm import tqdm
 
-import sys
-sys.path.append(".")
-sys.path.append("../")
-import common_functions as CF
+try:
+    import sys
+    sys.path.append(".")
+    sys.path.append("../")
+    import common_functions as CF
+except:
+    exit("The common_functions.py file needs to be in this folder or in the\
+parent folder for it to be imported")
 
 
 parser = argparse.ArgumentParser(description="Non-personalized recommender")

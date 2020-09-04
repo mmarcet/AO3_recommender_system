@@ -4,4 +4,4 @@ This project was done as part of the Data science master of Kschool. The goal of
 
 Details about the project and how to run the different scripts can be found on the project wiki page:
 
-https://github.com/mmarcet/master_project_Kschool/wiki
+https://github.com/mmarcet/AO3_recommender_system/wiki
